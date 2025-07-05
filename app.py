@@ -13,6 +13,8 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 import nltk
 import spacy
 import re
+import plotly.graph_objects as go
+import os
 
 # Download required NLTK data
 nltk.download('punkt')
@@ -24,60 +26,62 @@ except Exception as e:
     st.error(f"Error loading spacy model: {str(e)}. Please ensure 'en_core_web_sm' is installed.")
     nlp = None
 
-# Custom CSS
+# Custom CSS with local fallback for background image
 st.markdown(
     """
     <style>
     .main {
-        background-image: url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80');
+        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=='); /* 1x1 transparent pixel as fallback */
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
         color: #e0e0e0;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        animation: fadeIn 1s ease-in;
+        font-family: 'Poppins', sans-serif;
+        animation: fadeIn 1.5s ease-in-out;
     }
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
     }
     .sidebar .sidebar-content {
-        background: linear-gradient(135deg, #16213e, #1a2a6c);
+        background: linear-gradient(135deg, #0d1b2a, #1b263b);
         color: #e0e0e0;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-        animation: slideIn 0.8s ease-out;
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        animation: slideIn 1s ease-out;
     }
     @keyframes slideIn {
         from { transform: translateX(-100%); }
         to { transform: translateX(0); }
     }
     .sidebar .sidebar-content .stSelectbox label {
-        color: #ff6f61;
-        font-size: 1.2em;
-        font-weight: bold;
-        text-shadow: 1px 1px 3px #000;
+        color: #00d4ff;
+        font-size: 1.3em;
+        font-weight: 600;
+        text-shadow: 2px 2px 4px #000;
     }
     .stButton>button {
-        background: linear-gradient(45deg, #0f3460, #1e5f74);
-        color: white;
+        background: linear-gradient(45deg, #00c4cc, #007bff);
+        color: #fff;
         border: none;
-        border-radius: 20px;
-        padding: 12px 30px;
-        font-size: 1.1em;
-        font-weight: bold;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease, transform 0.2s ease;
+        border-radius: 25px;
+        padding: 15px 35px;
+        font-size: 1.2em;
+        font-weight: 600;
+        box-shadow: 0 6px 20px rgba(0, 116, 255, 0.4);
+        transition: all 0.4s ease, transform 0.3s ease;
         position: relative;
         overflow: hidden;
         cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     .stButton>button:hover {
-        background: linear-gradient(45deg, #1e5f74, #0f3460);
-        transform: scale(1.1) translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        background: linear-gradient(45deg, #007bff, #00c4cc);
+        transform: scale(1.1) translateY(-4px);
+        box-shadow: 0 10px 30px rgba(0, 116, 255, 0.6);
     }
     .stButton>button:after {
         content: '';
@@ -86,86 +90,86 @@ st.markdown(
         left: 50%;
         width: 0;
         height: 0;
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.4);
         border-radius: 50%;
         transform: translate(-50%, -50%);
-        transition: width 0.6s ease, height 0.6s ease;
+        transition: width 0.7s ease, height 0.7s ease;
     }
     .stButton>button:hover:after {
-        width: 400px;
-        height: 400px;
+        width: 500px;
+        height: 500px;
     }
     .stTextArea textarea, .stTextInput input {
-        background-color: rgba(42, 42, 62, 0.85);
+        background-color: rgba(13, 27, 42, 0.9);
         color: #e0e0e0;
-        border: 2px solid #444;
-        border-radius: 15px;
-        backdrop-filter: blur(8px);
-        transition: all 0.3s ease;
+        border: 2px solid #1b263b;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        transition: all 0.4s ease;
     }
     .stTextArea textarea:focus, .stTextInput input:focus {
-        border-color: #ff6f61;
-        box-shadow: 0 0 10px rgba(255, 111, 97, 0.5);
+        border-color: #00d4ff;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
     }
     .stTextArea label, .stTextInput label {
-        color: #ff6f61;
-        font-weight: bold;
-        text-shadow: 1px 1px 3px #000;
-        animation: pulse 2s infinite;
+        color: #00d4ff;
+        font-weight: 600;
+        text-shadow: 2px 2px 5px #000;
+        animation: pulse 2.5s infinite;
     }
     @keyframes pulse {
         0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
+        50% { transform: scale(1.08); }
         100% { transform: scale(1); }
     }
     .stImage {
-        border-radius: 15px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-        animation: float 3s infinite ease-in-out;
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        animation: float 4s infinite ease-in-out;
     }
     @keyframes float {
         0% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+        50% { transform: translateY(-12px); }
         100% { transform: translateY(0); }
     }
     h1 {
-        color: #ff6f61;
+        color: #00d4ff;
         text-align: center;
-        text-shadow: 2px 2px 6px #000;
-        background: rgba(26, 26, 46, 0.8);
-        padding: 15px;
-        border-radius: 15px;
-        animation: bounceIn 1s ease-out;
+        text-shadow: 3px 3px 8px #000;
+        background: rgba(13, 27, 42, 0.9);
+        padding: 20px;
+        border-radius: 20px;
+        animation: bounceIn 1.2s ease-out;
     }
     @keyframes bounceIn {
         0% { transform: scale(0.9); opacity: 0; }
-        50% { transform: scale(1.1); }
+        50% { transform: scale(1.15); }
         100% { transform: scale(1); opacity: 1; }
     }
     .stWrite {
         color: #e0e0e0;
-        background: rgba(42, 42, 62, 0.8);
-        padding: 15px;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        animation: slideUp 0.8s ease-out;
+        background: rgba(13, 27, 42, 0.9);
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        animation: slideUp 1s ease-out;
     }
     @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
+        from { transform: translateY(25px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
     .metric-box {
-        background: rgba(42, 42, 62, 0.9);
-        padding: 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        background: rgba(13, 27, 42, 0.95);
+        padding: 25px;
+        border-radius: 20px;
+        margin: 15px 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
         text-align: center;
-        font-size: 1.2em;
-        transition: transform 0.3s ease;
+        font-size: 1.3em;
+        transition: transform 0.4s ease;
     }
     .metric-box:hover {
-        transform: translateY(-5px);
+        transform: translateY(-6px);
     }
     </style>
     """,
@@ -367,7 +371,7 @@ Hint: Consider how data reduces uncertainty and allows better forecasting.
 Summary Table (Recap)
 
 | Topic | Definition | Example | Thinker/Topl |
-| :---: | :---: | :---: | :---: |
+| :---: | :---: | | |
 | Management | Getting work done through others | School principal organizing staff | Fayol |
 | Planning | Setting goals and path | Strategic plan to expand | MBO |
 | Decision-Making | Choosing best option | SWOT for product launch | Decision Tree |
@@ -508,6 +512,96 @@ def keywords_in_text(keywords, text):
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in keywords)
 
+# Function to create single 3D visualization with all 19 qubits
+def plot_all_qubits_3d():
+    fig = go.Figure()
+
+    # Bloch sphere and cube for each qubit
+    text_length = min(len(st.session_state.extracted_text), 19)
+    qubit_states = [np.array([1, 0, 0])] * 19  # Default to |0> state
+    qc = QuantumCircuit(19, 19)
+    
+    for i in range(text_length):
+        if st.session_state.extracted_text[i].isalpha():
+            qc.h(i)
+            angle = np.pi * ord(st.session_state.extracted_text[i]) / 128
+            qc.rx(angle, i)
+            state = np.array([np.cos(angle/2), 0, np.sin(angle/2)])
+            qubit_states[i] = state / np.linalg.norm(state)
+
+    # Position qubits in a 3D grid (5x4 layout, with 3 leftover)
+    positions = []
+    for i in range(19):
+        x = (i % 5) * 0.1 - 0.2  # Spread across 5 columns
+        y = (i // 5) * 0.1 - 0.1  # 4 rows, adjust for 19 qubits
+        z = 0
+        positions.append([x, y, z])
+
+    # Table tennis ball size (diameter ~0.04m, scaled to 0.04 units in plot)
+    ball_radius = 0.02
+
+    for i, (state, pos) in enumerate(zip(qubit_states, positions)):
+        theta = np.arccos(2 * state[2] - 1)
+        phi = np.arctan2(state[1], state[0])
+        x_sphere = pos[0] + np.sin(theta) * np.cos(phi) * ball_radius
+        y_sphere = pos[1] + np.sin(theta) * np.sin(phi) * ball_radius
+        z_sphere = pos[2] + np.cos(theta) * ball_radius
+
+        # Bloch sphere (scaled to table tennis ball size)
+        u = np.linspace(0, 2 * np.pi, 20)
+        v = np.linspace(0, np.pi, 20)
+        x_s = pos[0] + ball_radius * np.outer(np.cos(u), np.sin(v))
+        y_s = pos[1] + ball_radius * np.outer(np.sin(u), np.sin(v))
+        z_s = pos[2] + ball_radius * np.outer(np.ones(np.size(u)), np.cos(v))
+        fig.add_trace(go.Surface(x=x_s, y=y_s, z=z_s, colorscale='Blues', opacity=0.5, showscale=False, name=f'Qubit {i} Sphere'))
+
+        # State vector
+        fig.add_trace(go.Scatter3d(
+            x=[pos[0], pos[0] + x_sphere], y=[pos[1], pos[1] + y_sphere], z=[pos[2], pos[2] + z_sphere],
+            mode='lines+markers', line=dict(color='red', width=2), marker=dict(size=4, color='red'),
+            name=f'Qubit {i} State'
+        ))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] + ball_radius], mode='markers', marker=dict(size=3, color='green'), name=f'Qubit {i} |0>'))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] - ball_radius], mode='markers', marker=dict(size=3, color='orange'), name=f'Qubit {i} |1>'))
+
+        # Cube (scaled to table tennis ball size)
+        cube_scale = ball_radius * 1.5  # Slightly larger than sphere for visibility
+        vertices = np.array([
+            [pos[0] - cube_scale, pos[1] - cube_scale, pos[2] - cube_scale],
+            [pos[0] + cube_scale, pos[1] - cube_scale, pos[2] - cube_scale],
+            [pos[0] + cube_scale, pos[1] + cube_scale, pos[2] - cube_scale],
+            [pos[0] - cube_scale, pos[1] + cube_scale, pos[2] - cube_scale],
+            [pos[0] - cube_scale, pos[1] - cube_scale, pos[2] + cube_scale],
+            [pos[0] + cube_scale, pos[1] - cube_scale, pos[2] + cube_scale],
+            [pos[0] + cube_scale, pos[1] + cube_scale, pos[2] + cube_scale],
+            [pos[0] - cube_scale, pos[1] + cube_scale, pos[2] + cube_scale]
+        ])
+        edges = [
+            [0, 1], [1, 2], [2, 3], [3, 0],
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ]
+        for edge in edges:
+            fig.add_trace(go.Scatter3d(
+                x=[vertices[edge[0]][0], vertices[edge[1]][0]],
+                y=[vertices[edge[0]][1], vertices[edge[1]][1]],
+                z=[vertices[edge[0]][2], vertices[edge[1]][2]],
+                mode='lines', line=dict(color='cyan', width=2), name=f'Qubit {i} Cube'
+            ))
+
+    fig.update_layout(
+        scene=dict(
+            xaxis_title='X', yaxis_title='Y', zaxis_title='Z',
+            aspectmode='cube'
+        ),
+        title='All 19 Qubits in QOA (Bloch Spheres and Cubes)',
+        showlegend=True,
+        margin=dict(l=0, r=0, t=40, b=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    return fig
+
 # Page 1: Text Extraction
 def page_text_extraction():
     st.title("Text Extraction")
@@ -553,16 +647,15 @@ def page_quantum_encoding():
             for i in range(text_length):
                 if st.session_state.extracted_text[i].isalpha():
                     qc.h(i)
-                    qc.rx(np.pi * ord(st.session_state.extracted_text[i]) / 128, i)
+                    angle = np.pi * ord(st.session_state.extracted_text[i]) / 128
+                    qc.rx(angle, i)
             st.session_state.encoded_circuit = qc
             encoding_time = time.time() - start_time
             st.session_state.metrics['encoding_time'] = encoding_time
             
-            fig = qc.draw(output='mpl')
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            buf.seek(0)
-            st.image(buf, caption="Quantum Circuit", use_column_width=True)
+            # Display single 3D visualization
+            st.plotly_chart(plot_all_qubits_3d(), use_container_width=True)
+            
             col1, col2 = st.columns([1, 1])
             with col1:
                 if st.button("Proceed to Summarization"):
@@ -617,7 +710,7 @@ def page_chatbot():
         for i, question in enumerate(st.session_state.generated_questions, 1):
             col1, col2 = st.columns([3, 1])
             with col1:
-                if st.button(f"{i}. {question}"):
+                if st.button(f"{i}. {question}", key=f"question_{i}", help="Click to get the answer"):
                     try:
                         qa_model = pipeline("question-answering", model="deepset/roberta-base-squad2")
                         start_time = time.time()
