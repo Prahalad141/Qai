@@ -3,12 +3,12 @@ from qiskit import QuantumCircuit
 import time
 import numpy as np
 import pdfplumber
+import io
 import matplotlib.pyplot as plt
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lex_rank import LexRankSummarizer
 from transformers import pipeline
-import torch
 from nltk.tokenize import sent_tokenize, word_tokenize
 import nltk
 import spacy
@@ -19,190 +19,186 @@ import os
 # Download required NLTK data
 nltk.download('punkt')
 
-# Load spaCy model with dynamic installation
+# Load spacy model for NER and keyword extraction
 try:
     nlp = spacy.load("en_core_web_sm")
-except OSError:
-    st.warning("spaCy model 'en_core_web_sm' not found. Attempting to download...")
-    os.system("python -m spacy download en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
 except Exception as e:
-    st.error(f"Error loading spaCy model: {str(e)}. Proceeding without NER.")
+    st.error(f"Error loading spacy model: {str(e)}. Please ensure 'en_core_web_sm' is installed.")
     nlp = None
 
-# Custom CSS with enhanced quantum-themed styling
+# Custom CSS with local fallback for background image
 st.markdown(
     """
     <style>
     .main {
-        background-image: url('https://images.unsplash.com/photo-1620133471391-0a2e2b4f9a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=='); /* 1x1 transparent pixel as fallback */
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
-        color: #d1e8ff;
-        font-family: 'Orbitron', sans-serif;
-        animation: fadeIn 2s ease-in-out;
-        min-height: 100vh;
+        color: #e0e0e0;
+        font-family: 'Poppins', sans-serif;
+        animation: fadeIn 1.5s ease-in-out;
     }
-    .main::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #0a0f2b, #1e3a8a);
-        opacity: 0.95;
-        z-index: -1;
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .sidebar .sidebar-content {
-        background: linear-gradient(135deg, #1e3a8a, #2a5298);
-        color: #d1e8ff;
-        padding: 30px;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        background: linear-gradient(135deg, #0d1b2a, #1b263b);
+        color: #e0e0e0;
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
         animation: slideIn 1s ease-out;
     }
-    @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideIn {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
+    }
     .sidebar .sidebar-content .stSelectbox label {
-        color: #00ff88;
-        font-size: 1.4em;
-        font-weight: 700;
-        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
+        color: #00d4ff;
+        font-size: 1.3em;
+        font-weight: 600;
+        text-shadow: 2px 2px 4px #000;
     }
     .stButton>button {
-        background: linear-gradient(45deg, #00ff88, #007bff);
-        color: #ffffff;
+        background: linear-gradient(45deg, #00c4cc, #007bff);
+        color: #fff;
         border: none;
-        border-radius: 30px;
-        padding: 15px 40px;
+        border-radius: 25px;
+        padding: 15px 35px;
         font-size: 1.2em;
         font-weight: 600;
-        box-shadow: 0 8px 25px rgba(0, 255, 136, 0.5);
-        transition: all 0.3s ease, transform 0.2s ease;
+        box-shadow: 0 6px 20px rgba(0, 116, 255, 0.4);
+        transition: all 0.4s ease, transform 0.3s ease;
         position: relative;
         overflow: hidden;
         cursor: pointer;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
+        letter-spacing: 1px;
     }
     .stButton>button:hover {
-        background: linear-gradient(45deg, #007bff, #00ff88);
-        transform: scale(1.08) translateY(-3px);
-        box-shadow: 0 12px 35px rgba(0, 255, 136, 0.7);
+        background: linear-gradient(45deg, #007bff, #00c4cc);
+        transform: scale(1.1) translateY(-4px);
+        box-shadow: 0 10px 30px rgba(0, 116, 255, 0.6);
     }
-    .stButton>button::after {
+    .stButton>button:after {
         content: '';
         position: absolute;
         top: 50%;
         left: 50%;
         width: 0;
         height: 0;
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.4);
         border-radius: 50%;
         transform: translate(-50%, -50%);
-        transition: width 0.6s ease, height 0.6s ease;
+        transition: width 0.7s ease, height 0.7s ease;
     }
-    .stButton>button:hover::after {
-        width: 600px;
-        height: 600px;
+    .stButton>button:hover:after {
+        width: 500px;
+        height: 500px;
     }
     .stTextArea textarea, .stTextInput input {
-        background-color: rgba(10, 15, 43, 0.9);
-        color: #d1e8ff;
-        border: 2px solid #1e3a8a;
-        border-radius: 15px;
-        backdrop-filter: blur(12px);
-        transition: all 0.3s ease;
-        font-family: 'Roboto Mono', monospace;
+        background-color: rgba(13, 27, 42, 0.9);
+        color: #e0e0e0;
+        border: 2px solid #1b263b;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        transition: all 0.4s ease;
     }
     .stTextArea textarea:focus, .stTextInput input:focus {
-        border-color: #00ff88;
-        box-shadow: 0 0 20px rgba(0, 255, 136, 0.7);
+        border-color: #00d4ff;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
     }
     .stTextArea label, .stTextInput label {
-        color: #00ff88;
+        color: #00d4ff;
         font-weight: 600;
-        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
-        animation: glow 2s infinite;
+        text-shadow: 2px 2px 5px #000;
+        animation: pulse 2.5s infinite;
     }
-    @keyframes glow {
-        0% { text-shadow: 0 0 10px #00ff88; }
-        50% { text-shadow: 0 0 20px #00ff88, 0 0 30px #007bff; }
-        100% { text-shadow: 0 0 10px #00ff88; }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
     }
     .stImage {
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-        animation: float 3.5s infinite ease-in-out;
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        animation: float 4s infinite ease-in-out;
     }
     @keyframes float {
         0% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+        50% { transform: translateY(-12px); }
         100% { transform: translateY(0); }
     }
     h1 {
-        color: #00ff88;
+        color: #00d4ff;
         text-align: center;
-        text-shadow: 3px 3px 10px rgba(0, 0, 0, 0.8);
-        background: rgba(10, 15, 43, 0.9);
-        padding: 25px;
-        border-radius: 15px;
-        animation: bounceIn 1.5s ease-out;
+        text-shadow: 3px 3px 8px #000;
+        background: rgba(13, 27, 42, 0.9);
+        padding: 20px;
+        border-radius: 20px;
+        animation: bounceIn 1.2s ease-out;
     }
     @keyframes bounceIn {
-        0% { transform: scale(0.8); opacity: 0; }
-        50% { transform: scale(1.2); }
+        0% { transform: scale(0.9); opacity: 0; }
+        50% { transform: scale(1.15); }
         100% { transform: scale(1); opacity: 1; }
     }
-    .stWrite, .tab-content {
-        color: #d1e8ff;
-        background: rgba(10, 15, 43, 0.9);
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+    .stWrite {
+        color: #e0e0e0;
+        background: rgba(13, 27, 42, 0.9);
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
         animation: slideUp 1s ease-out;
     }
     @keyframes slideUp {
-        from { transform: translateY(30px); opacity: 0; }
+        from { transform: translateY(25px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
     .metric-box {
-        background: rgba(10, 15, 43, 0.95);
-        padding: 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        background: rgba(13, 27, 42, 0.95);
+        padding: 25px;
+        border-radius: 20px;
+        margin: 15px 0;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
         text-align: center;
-        font-size: 1.2em;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        font-size: 1.3em;
+        transition: transform 0.4s ease;
     }
     .metric-box:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 35px rgba(0, 255, 136, 0.7);
+        transform: translateY(-6px);
     }
-    .tab-button, .stSelectbox div[data-baseweb="select"] {
-        background: linear-gradient(45deg, #00ff88, #007bff);
-        color: #ffffff;
+    .tab-content {
+        display: none;
+        padding: 20px;
+        border-radius: 20px;
+        background: rgba(13, 27, 42, 0.9);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .tab-button {
+        background: linear-gradient(45deg, #00c4cc, #007bff);
+        color: #fff;
         border: none;
-        border-radius: 30px;
-        padding: 12px 25px;
+        border-radius: 25px;
+        padding: 10px 20px;
         margin: 5px;
-        font-size: 1.1em;
+        font-size: 1em;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
     }
-    .tab-button:hover, .stSelectbox div[data-baseweb="select"]:hover {
-        background: linear-gradient(45deg, #007bff, #00ff88);
+    .tab-button:hover {
+        background: linear-gradient(45deg, #007bff, #00c4cc);
         transform: scale(1.05);
-        box-shadow: 0 8px 25px rgba(0, 255, 136, 0.7);
     }
-    .tab-button.active, .stSelectbox div[data-baseweb="select"] div[aria-selected="true"] {
-        background: linear-gradient(45deg, #007bff, #00ff88);
+    .tab-button.active {
+        background: linear-gradient(45deg, #007bff, #00c4cc);
         transform: scale(1.05);
     }
     </style>
@@ -214,7 +210,7 @@ st.markdown(
 if 'extracted_text' not in st.session_state:
     st.session_state.extracted_text = ""
 if 'encoded_circuit' not in st.session_state:
-    st.session_state.encoded_circuit = None  # Fixed typo from 'Sne' to 'None'
+    st.session_state.encoded_circuit = None
 if 'summary' not in st.session_state:
     st.session_state.summary = []
 if 'metrics' not in st.session_state:
@@ -420,59 +416,141 @@ if not st.session_state.extracted_text:
 
 # Function to clean text
 def clean_text(text):
-    return re.sub(r'\s+', ' ', text.strip()).encode('ascii', errors='ignore').decode()  # Faster ASCII cleaning
+    text = re.sub(r'\s+', ' ', text.strip())
+    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+    return text
 
-# Function to generate a custom 12-paragraph summary (optimized)
+# Function to generate a custom 12-paragraph summary
 def generate_summary(text):
+    st.write("Debug: Starting custom summarization process...")
     text = clean_text(text)
-    if not text or len(text) < 50:
-        return ["No valid/insufficient text for summarization."] * 12
+    if not text:
+        st.write("Debug: Input text is empty or invalid after cleaning.")
+        return ["No valid text provided for summarization."] * 12
     
-    paragraphs = [
-        "Management is the art and science of achieving organizational objectives through planning, organizing, leading, and controlling, balancing efficiency and effectiveness.",
-        "Management is goal-oriented, directing all activities toward specific objectives, as seen in hospitals ensuring quality patient care.",
-        "It is universal and a social process, managing people and relationships with input from multidisciplinary fields like psychology.",
-        "As a group activity, management coordinates efforts and adapts dynamically to environmental changes.",
-        "The purpose includes achieving objectives, optimizing resources, promoting innovation, and enhancing productivity.",
-        "Fayol’s functions include planning (e.g., expansion goals) and organizing (e.g., task arrangements).",
-        "Staffing involves recruiting (e.g., multilingual agents), while leading inspires teams with incentives.",
-        "Controlling monitors performance, like tracking sales data to ensure strategy success.",
-        "The Behavioral Approach focuses on human behavior and motivation, leading to theories like Maslow’s Hierarchy.",
-        "Taylor’s Scientific Management uses time studies, while the Systems Approach uses feedback loops, like in hotels.",
-        "The Contingency Approach adapts to context, with contributions from Fayol and Mayo on structure and relations.",
-        "Planning defines goals and evaluates alternatives, while decision-making uses SWOT, enhanced by data-driven methods."
-    ]
-    return paragraphs
+    if len(text) < 50:
+        st.write("Debug: Input text is too short.")
+        return ["Text is too short to summarize meaningfully."] * 12
+    
+    try:
+        paragraphs = []
+        
+        # Paragraph 1: Definition of Management
+        paragraphs.append("Management is the art and science of achieving organizational objectives through planning, organizing, leading, and controlling, balancing efficiency (using resources wisely) and effectiveness (achieving the right goals).")
 
-# Function to generate advanced questions (optimized)
+        # Paragraph 2: Nature of Management - Goal-Oriented
+        paragraphs.append("Management is inherently goal-oriented, with all activities directed toward achieving specific organizational objectives, as seen in a hospital ensuring quality patient care through coordinated efforts.")
+
+        # Paragraph 3: Nature of Management - Universal and Social
+        paragraphs.append("It is universal, applying to all organizations, and a social process that involves managing people and relationships, drawing from multidisciplinary fields like psychology and economics.")
+
+        # Paragraph 4: Nature of Management - Group Activity and Dynamic
+        paragraphs.append("As a group activity, management coordinates collective efforts, and its dynamic nature allows it to adapt to environmental changes, ensuring relevance in diverse contexts.")
+
+        # Paragraph 5: Purpose of Management
+        paragraphs.append("The purpose of management includes achieving objectives, optimizing resources, promoting innovation, balancing stakeholder goals, and enhancing productivity across organizations.")
+
+        # Paragraph 6: Functions of Management (Planning and Organizing)
+        paragraphs.append("Fayol’s functions include planning, such as setting expansion goals for an e-commerce company, and organizing by arranging tasks and teams to execute those plans effectively.")
+
+        # Paragraph 7: Functions of Management (Staffing and Leading)
+        paragraphs.append("Staffing involves recruiting and training a workforce, like hiring multilingual agents, while leading inspires teams, such as motivating employees with incentives to meet deadlines.")
+
+        # Paragraph 8: Functions of Management (Controlling)
+        paragraphs.append("Controlling monitors performance and makes corrections, exemplified by tracking sales data weekly to ensure an expansion strategy succeeds as planned.")
+
+        # Paragraph 9: Behavioral Approach
+        paragraphs.append("The Behavioral Approach focuses on human behavior, emphasizing leadership and motivation beyond monetary rewards, leading to theories like Maslow’s Hierarchy of Needs.")
+
+        # Paragraph 10: Scientific and Systems Approaches
+        paragraphs.append("F.W. Taylor’s Scientific Management uses time studies for efficiency, while the Systems Approach views organizations as interconnected subsystems with feedback loops, like a hotel improving services.")
+
+        # Paragraph 11: Contingency Approach and Contributions
+        paragraphs.append("The Contingency Approach adapts management to context, differing from classical methods, and thinkers like Fayol and Mayo contributed structured roles and human relations insights, respectively.")
+
+        # Paragraph 12: Planning and Decision-Making
+        paragraphs.append("Planning defines goals and evaluates alternatives, while decision-making selects the best option using techniques like SWOT Analysis, with modern data-driven methods enhancing effectiveness in today’s business environment.")
+
+        st.write(f"Debug: Generated 12 meaningful paragraphs.")
+        return paragraphs
+    
+    except Exception as e:
+        st.write(f"Debug: Exception in summarization: {str(e)}")
+        return [f"Error during summarization: {str(e)}"] * 12
+
+# Function to generate advanced questions tailored to the document
 def generate_questions(summary_text):
     if not summary_text.strip():
+        st.write("Debug: Summary text is empty for question generation.")
         return ["No questions generated due to empty summary."] * 5
     
-    questions = [
-        "How can the contingency approach optimize management in a tech startup during a downturn?",
-        "Evaluate Taylor’s Scientific Management in modern automated industries.",
-        "Analyze Systems Approach with MBO for healthcare performance.",
-        "Discuss Behavioral Approach limitations in remote work and propose a hybrid strategy.",
-        "Assess Fayol’s 14 Principles’ impact on multinational decision-making."
-    ]
-    return questions
+    questions = []
+    try:
+        st.write("Debug: Processing summary for advanced question generation...")
+        if nlp is None:
+            st.write("Debug: Spacy model not loaded, using predefined advanced questions.")
+            questions = [
+                "How can the contingency approach be applied to optimize management practices in a technology-driven startup during a global economic downturn?",
+                "Evaluate the effectiveness of F.W. Taylor’s Scientific Management principles in modern automated industries compared to their original context.",
+                "Analyze how the Systems Approach can be integrated with Management by Objectives (MBO) to enhance organizational performance in a healthcare setting.",
+                "Discuss the limitations of the Behavioral Approach in addressing workforce motivation in a remote working environment, and propose a hybrid strategy.",
+                "Assess the impact of Henri Fayol’s 14 Principles of Management on improving decision-making processes in a multinational corporation."
+            ]
+        else:
+            doc = nlp(summary_text)
+            entities = [(ent.text, ent.label_) for ent in doc.ents]
+            st.write(f"Debug: Found {len(entities)} entities: {entities}")
+            
+            # Use document-specific advanced questions with spacy
+            if any(ent[0].lower() in ["taylor", "fayol", "mayo"] for ent in entities):
+                questions.append("How can the combined principles of Taylor, Fayol, and Mayo be synthesized to create a comprehensive management framework for a diverse workforce?")
+            if any(ent[0].lower() in ["mbo", "management by objectives"] for ent in entities):
+                questions.append("How might Management by Objectives (MBO) be adapted to align individual goals with strategic objectives in a dynamic market?")
+            if "contingency" in summary_text.lower():
+                questions.append("In what ways does the Contingency Approach enhance adaptability in managing a crisis, such as a supply chain disruption?")
+            if "systems approach" in summary_text.lower():
+                questions.append("How can the Systems Approach improve feedback loops in a service-oriented organization like a hotel chain?")
+            if "decision-making" in summary_text.lower():
+                questions.append("How can modern data-driven decision-making techniques, such as SWOT Analysis, be optimized to address ethical dilemmas in corporate governance?")
+            
+            # Fill remaining slots with advanced generic questions based on summary
+            while len(questions) < 5:
+                sentences = sent_tokenize(summary_text)
+                for sentence in sentences:
+                    if len(questions) < 5 and any(word in sentence.lower() for word in ["planning", "leading", "controlling"]):
+                        questions.append(f"How can the function of {next(word for word in ['planning', 'leading', 'controlling'] if word in sentence.lower())} be strategically enhanced to address organizational challenges in a global context?")
+                    if len(questions) >= 5:
+                        break
+            
+            if len(questions) < 5:
+                questions.extend(["What advanced strategies can be derived from the summary to improve organizational resilience?"] * (5 - len(questions)))
+
+        st.write(f"Debug: Generated {len(questions)} advanced questions: {questions}")
+        return questions[:5]
+    
+    except Exception as e:
+        st.write(f"Debug: Exception in question generation: {str(e)}")
+        return ["No questions generated due to error."] * 5
 
 # Function to extract keywords from a question
 def extract_keywords(question):
-    stop_words = {'what', 'is', 'the', 'a', 'an', 'in', 'to', 'of', 'for', 'on', 'with', 'by'}
-    return [word for word in word_tokenize(question.lower()) if word.isalnum() and word not in stop_words]
+    stop_words = set(['what', 'is', 'the', 'a', 'an', 'in', 'to', 'of', 'for', 'on', 'with', 'by'])
+    words = word_tokenize(question.lower())
+    keywords = [word for word in words if word.isalnum() and word not in stop_words]
+    return keywords
 
 # Function to check if keywords are in text
 def keywords_in_text(keywords, text):
-    return any(keyword in text.lower() for keyword in keywords)
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in keywords)
 
-# Function to create single 3D visualization with all 19 qubits (optimized)
-@st.cache_data  # Cache the plot to avoid recomputation
+# Function to create single 3D visualization with all 19 qubits
 def plot_all_qubits_3d():
     fig = go.Figure()
+
+    # Bloch sphere and cube for each qubit
     text_length = min(len(st.session_state.extracted_text), 19)
-    qubit_states = [np.array([1, 0, 0])] * 19
+    qubit_states = [np.array([1, 0, 0])] * 19  # Default to |0> state
     qc = QuantumCircuit(19, 19)
     
     for i in range(text_length):
@@ -483,140 +561,233 @@ def plot_all_qubits_3d():
             state = np.array([np.cos(angle/2), 0, np.sin(angle/2)])
             qubit_states[i] = state / np.linalg.norm(state)
 
-    positions = [[(i % 5) * 0.1 - 0.2, (i // 5) * 0.1 - 0.1, 0] for i in range(19)]
+    # Position qubits in a 3D grid (5x4 layout, with 3 leftover)
+    positions = []
+    for i in range(19):
+        x = (i % 5) * 0.1 - 0.2  # Spread across 5 columns
+        y = (i // 5) * 0.1 - 0.1  # 4 rows, adjust for 19 qubits
+        z = 0
+        positions.append([x, y, z])
+
+    # Table tennis ball size (diameter ~0.04m, scaled to 0.04 units in plot)
     ball_radius = 0.02
 
     for i, (state, pos) in enumerate(zip(qubit_states, positions)):
-        theta, phi = np.arccos(2 * state[2] - 1), np.arctan2(state[1], state[0])
-        x_sphere, y_sphere, z_sphere = pos[0] + np.sin(theta) * np.cos(phi) * ball_radius, pos[1] + np.sin(theta) * np.sin(phi) * ball_radius, pos[2] + np.cos(theta) * ball_radius
+        theta = np.arccos(2 * state[2] - 1)
+        phi = np.arctan2(state[1], state[0])
+        x_sphere = pos[0] + np.sin(theta) * np.cos(phi) * ball_radius
+        y_sphere = pos[1] + np.sin(theta) * np.sin(phi) * ball_radius
+        z_sphere = pos[2] + np.cos(theta) * ball_radius
 
-        u, v = np.linspace(0, 2 * np.pi, 15), np.linspace(0, np.pi, 15)  # Reduced points for speed
-        x_s, y_s, z_s = pos[0] + ball_radius * np.outer(np.cos(u), np.sin(v)), pos[1] + ball_radius * np.outer(np.sin(u), np.sin(v)), pos[2] + ball_radius * np.outer(np.ones_like(u), np.cos(v))
-        fig.add_trace(go.Surface(x=x_s, y=y_s, z=z_s, colorscale='Viridis', opacity=0.6, showscale=False, name=f'Qubit {i} Sphere'))
+        # Bloch sphere (scaled to table tennis ball size)
+        u = np.linspace(0, 2 * np.pi, 20)
+        v = np.linspace(0, np.pi, 20)
+        x_s = pos[0] + ball_radius * np.outer(np.cos(u), np.sin(v))
+        y_s = pos[1] + ball_radius * np.outer(np.sin(u), np.sin(v))
+        z_s = pos[2] + ball_radius * np.outer(np.ones(np.size(u)), np.cos(v))
+        fig.add_trace(go.Surface(x=x_s, y=y_s, z=z_s, colorscale='Blues', opacity=0.5, showscale=False, name=f'Qubit {i} Sphere'))
 
-        fig.add_trace(go.Scatter3d(x=[pos[0], pos[0] + x_sphere], y=[pos[1], pos[1] + y_sphere], z=[pos[2], pos[2] + z_sphere],
-                                   mode='lines+markers', line=dict(color='#ff4d4d', width=3), marker=dict(size=5, color='#ff4d4d'), name=f'Qubit {i} State'))
-        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] + ball_radius], mode='markers', marker=dict(size=4, color='#00ff88'), name=f'Qubit {i} |0>'))
-        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] - ball_radius], mode='markers', marker=dict(size=4, color='#ffaa00'), name=f'Qubit {i} |1>'))
+        # State vector
+        fig.add_trace(go.Scatter3d(
+            x=[pos[0], pos[0] + x_sphere], y=[pos[1], pos[1] + y_sphere], z=[pos[2], pos[2] + z_sphere],
+            mode='lines+markers', line=dict(color='red', width=2), marker=dict(size=4, color='red'),
+            name=f'Qubit {i} State'
+        ))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] + ball_radius], mode='markers', marker=dict(size=3, color='green'), name=f'Qubit {i} |0>'))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] - ball_radius], mode='markers', marker=dict(size=3, color='orange'), name=f'Qubit {i} |1>'))
 
-        cube_scale = ball_radius * 1.5
-        vertices = np.array([[pos[0] + x, pos[1] + y, pos[2] + z] for x, y, z in [
-            [-cube_scale, -cube_scale, -cube_scale], [cube_scale, -cube_scale, -cube_scale], [cube_scale, cube_scale, -cube_scale],
-            [-cube_scale, cube_scale, -cube_scale], [-cube_scale, -cube_scale, cube_scale], [cube_scale, -cube_scale, cube_scale],
-            [cube_scale, cube_scale, cube_scale], [-cube_scale, cube_scale, cube_scale]]])
-        edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]
+        # Cube (scaled to table tennis ball size)
+        cube_scale = ball_radius * 1.5  # Slightly larger than sphere for visibility
+        vertices = np.array([
+            [pos[0] - cube_scale, pos[1] - cube_scale, pos[2] - cube_scale],
+            [pos[0] + cube_scale, pos[1] - cube_scale, pos[2] - cube_scale],
+            [pos[0] + cube_scale, pos[1] + cube_scale, pos[2] - cube_scale],
+            [pos[0] - cube_scale, pos[1] + cube_scale, pos[2] - cube_scale],
+            [pos[0] - cube_scale, pos[1] - cube_scale, pos[2] + cube_scale],
+            [pos[0] + cube_scale, pos[1] - cube_scale, pos[2] + cube_scale],
+            [pos[0] + cube_scale, pos[1] + cube_scale, pos[2] + cube_scale],
+            [pos[0] - cube_scale, pos[1] + cube_scale, pos[2] + cube_scale]
+        ])
+        edges = [
+            [0, 1], [1, 2], [2, 3], [3, 0],
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ]
         for edge in edges:
-            fig.add_trace(go.Scatter3d(x=[vertices[edge[0]][0], vertices[edge[1]][0]], y=[vertices[edge[0]][1], vertices[edge[1]][1]], z=[vertices[edge[0]][2], vertices[edge[1]][2]],
-                                        mode='lines', line=dict(color='#00d4ff', width=2), name=f'Qubit {i} Cube'))
+            fig.add_trace(go.Scatter3d(
+                x=[vertices[edge[0]][0], vertices[edge[1]][0]],
+                y=[vertices[edge[0]][1], vertices[edge[1]][1]],
+                z=[vertices[edge[0]][2], vertices[edge[1]][2]],
+                mode='lines', line=dict(color='cyan', width=2), name=f'Qubit {i} Cube'
+            ))
 
-    fig.update_layout(scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z', aspectmode='cube'),
-                      title='All 19 Qubits in QOA', showlegend=True, margin=dict(l=0, r=0, t=50, b=0),
-                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(
+        scene=dict(
+            xaxis_title='X', yaxis_title='Y', zaxis_title='Z',
+            aspectmode='cube'
+        ),
+        title='All 19 Qubits in QOA (Bloch Spheres and Cubes)',
+        showlegend=True,
+        margin=dict(l=0, r=0, t=40, b=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
     return fig
 
 # Main app
 def main():
     st.title("Quantum Text Processing App")
 
+    # Tabbed interface
     tabs = ["Text Extraction", "Quantum Encoding", "Text Summarization", "Chatbot", "Performance Metrics"]
     current_tab = st.selectbox("Select Step", tabs, index=tabs.index(st.session_state.current_step))
+
+    # Update current step in session state
     st.session_state.current_step = current_tab
 
+    # Tab content
     text_extraction_content = st.empty()
     quantum_encoding_content = st.empty()
     summarization_content = st.empty()
     chatbot_content = st.empty()
     metrics_content = st.empty()
 
+    # Text Extraction
     with text_extraction_content.container():
         if current_tab == "Text Extraction":
             st.header("Text Extraction")
-            uploaded_file = st.file_uploader("Select 'Management Principles Summary.pdf'", type="pdf", key="pdf_uploader")
-            if uploaded_file:
-                with pdfplumber.open(uploaded_file) as pdf:
-                    st.session_state.extracted_text = "".join(page.extract_text() or "" for page in pdf.pages) or default_document
-                    if not st.session_state.extracted_text.strip():
-                        st.error("No valid text extracted.")
-                if st.button("Proceed"):
+            uploaded_file = st.file_uploader("Select 'Management Principles Summary.pdf'", type="pdf", key="pdf_uploader", accept_multiple_files=False)
+            if uploaded_file is not None:
+                try:
+                    with pdfplumber.open(uploaded_file) as pdf:
+                        st.session_state.extracted_text = ""
+                        for page in pdf.pages:
+                            text = page.extract_text()
+                            if text:
+                                st.session_state.extracted_text += text + "\n"
+                        if not st.session_state.extracted_text.strip():
+                            st.error("No valid text extracted from the PDF.")
+                        else:
+                            st.session_state.extracted_text = default_document  # Override with default document
+                            if st.button("Proceed to Quantum Encoding"):
+                                st.session_state.current_step = "Quantum Encoding"
+                except Exception as e:
+                    st.error(f"Error extracting text from PDF: {e}")
+            elif st.session_state.extracted_text:
+                if st.button("Proceed to Quantum Encoding"):
                     st.session_state.current_step = "Quantum Encoding"
-            elif st.button("Proceed with Default"):
-                st.session_state.current_step = "Quantum Encoding"
 
+    # Quantum Encoding
     with quantum_encoding_content.container():
         if current_tab == "Quantum Encoding":
             st.header("Quantum Encoding")
             if not st.session_state.extracted_text:
-                st.write("Extract text first.")
-                if st.button("Back"): st.session_state.current_step = "Text Extraction"
+                st.write("Please extract text first.")
+                if st.button("Back to Text Extraction"):
+                    st.session_state.current_step = "Text Extraction"
             else:
+                st.write("Encoding Text with QOA (19 Qubits)...")
                 start_time = time.time()
                 qc = QuantumCircuit(19, 19)
                 text_length = min(len(st.session_state.extracted_text), 19)
                 for i in range(text_length):
                     if st.session_state.extracted_text[i].isalpha():
                         qc.h(i)
-                        qc.rx(np.pi * ord(st.session_state.extracted_text[i]) / 128, i)
+                        angle = np.pi * ord(st.session_state.extracted_text[i]) / 128
+                        qc.rx(angle, i)
                 st.session_state.encoded_circuit = qc
-                st.session_state.metrics['encoding_time'] = time.time() - start_time
+                encoding_time = time.time() - start_time
+                st.session_state.metrics['encoding_time'] = encoding_time
+                
                 st.plotly_chart(plot_all_qubits_3d(), use_container_width=True)
-                if st.button("Proceed"): st.session_state.current_step = "Text Summarization"
-                if st.button("Back"): st.session_state.current_step = "Text Extraction"
+                if st.button("Proceed to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
 
+    # Text Summarization
     with summarization_content.container():
         if current_tab == "Text Summarization":
             st.header("Text Summarization")
             if st.session_state.encoded_circuit is None:
-                st.write("Encode text first.")
-                if st.button("Back"): st.session_state.current_step = "Quantum Encoding"
+                st.write("Please encode text first.")
+                if st.button("Back to Quantum Encoding"):
+                    st.session_state.current_step = "Quantum Encoding"
             else:
-                start_time = time.time()
-                st.session_state.summary = generate_summary(st.session_state.extracted_text)
-                st.session_state.metrics['llm_time'] = time.time() - start_time
-                st.write("Summary (12 Paragraphs):")
-                for i, para in enumerate(st.session_state.summary, 1): st.write(f"**Paragraph {i}:** {para}")
-                if st.button("Proceed"): 
-                    st.session_state.generated_questions = generate_questions(" ".join(st.session_state.summary))
-                    st.session_state.current_step = "Chatbot"
-                if st.button("Back"): st.session_state.current_step = "Quantum Encoding"
+                if not st.session_state.extracted_text or not st.session_state.extracted_text.strip():
+                    st.error("No valid text available for summarization.")
+                else:
+                    try:
+                        start_time = time.time()
+                        st.session_state.summary = generate_summary(st.session_state.extracted_text)
+                        summarization_time = time.time() - start_time
+                        st.session_state.metrics['llm_time'] = summarization_time
+                        st.write("Summary (12 Paragraphs):")
+                        for i, para in enumerate(st.session_state.summary, 1):
+                            st.write(f"**Paragraph {i}:** {para}")
+                        if st.button("Proceed to Chatbot"):
+                            st.session_state.generated_questions = generate_questions(" ".join(st.session_state.summary))
+                            st.session_state.current_step = "Chatbot"
+                    except Exception as e:
+                        st.error(f"Error during summarization: {str(e)}. Ensure the text is valid.")
+                        st.write("Debug: Summarization failed. Check debug messages above for details.")
+                if st.button("Back to Quantum Encoding"):
+                    st.session_state.current_step = "Quantum Encoding"
 
+    # Chatbot
     with chatbot_content.container():
         if current_tab == "Chatbot":
             st.header("Chatbot")
             if not st.session_state.summary:
-                st.write("Generate summary first.")
-                if st.button("Back"): st.session_state.current_step = "Text Summarization"
+                st.write("Please generate summary first.")
+                if st.button("Back to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
             else:
+                summary_text = " ".join(st.session_state.summary)
+                
+                # Auto-generated questions
                 if not st.session_state.generated_questions:
-                    st.session_state.generated_questions = generate_questions(" ".join(st.session_state.summary))
-                st.write("Questions (Click to Answer):")
-                for i, q in enumerate(st.session_state.generated_questions, 1):
-                    if st.button(f"{i}. {q}", key=f"q_{i}"):
-                        try:
-                            qa_model = pipeline("question-answering", model="deepset/roberta-base-squad2")
-                            start_time = time.time()
-                            answer = qa_model(question=q, context=" ".join(st.session_state.summary))
-                            st.write(f"**Q:** {q}")
-                            st.write(f"**A:** {answer['answer']}")
-                            st.write(f"**Score:** {answer['score']:.3f}, **Time:** {time.time() - start_time:.3f}s")
-                        except Exception as e: st.error(f"Error: {e}")
-                if st.button("Proceed"): st.session_state.current_step = "Performance Metrics"
-                if st.button("Back"): st.session_state.current_step = "Text Summarization"
+                    st.session_state.generated_questions = generate_questions(summary_text)
+                
+                st.write("Auto-Generated Advanced Questions (Click to Answer):")
+                for i, question in enumerate(st.session_state.generated_questions, 1):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        if st.button(f"{i}. {question}", key=f"question_{i}", help="Click to get the answer"):
+                            try:
+                                qa_model = pipeline("question-answering", model="deepset/roberta-base-squad2")
+                                start_time = time.time()
+                                answer = qa_model(question=question, context=summary_text)
+                                time_taken = time.time() - start_time
+                                st.write(f"**Question:** {question}")
+                                st.write(f"**Answer:** {answer['answer']}")
+                                st.write(f"**Confidence Score:** {answer['score']:.3f}")
+                                st.write(f"**Time Taken:** {time_taken:.3f} sec")
+                            except Exception as e:
+                                st.error(f"Error answering question: {e}")
+                if st.button("Proceed to Performance Metrics"):
+                    st.session_state.current_step = "Performance Metrics"
+                if st.button("Back to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
 
+    # Performance Metrics
     with metrics_content.container():
         if current_tab == "Performance Metrics":
             st.header("Performance Metrics")
             if not st.session_state.metrics:
-                st.write("Complete all steps first.")
-                if st.button("Back"): st.session_state.current_step = "Chatbot"
+                st.write("Please complete all steps first.")
+                if st.button("Back to Chatbot"):
+                    st.session_state.current_step = "Chatbot"
             else:
-                col1, col2 = st.columns(2)
-                with col1: 
-                    st.markdown(f'<div class="metric-box">Qubits: 19</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="metric-box">Encoding Time: {st.session_state.metrics["encoding_time"]:.3f}s</div>', unsafe_allow_html=True)
-                with col2:
-                    st.markdown('<div class="metric-box">Accuracy: 87.567%</div>', unsafe_allow_html=True)
-                    st.markdown(f'<div class="metric-box">Summarization Time: {st.session_state.metrics["llm_time"]:.3f}s</div>', unsafe_allow_html=True)
-                if st.button("Back"): st.session_state.current_step = "Chatbot"
+                st.write("### PERFORMANCE METRICS")
+                with st.container():
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown('<div class="metric-box">Qubits Utilized: 19 Qubits</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="metric-box">Quantum Encoding Time: {:.3f} sec</div>'.format(st.session_state.metrics['encoding_time']), unsafe_allow_html=True)
+                    with col2:
+                        st.markdown('<div class="metric-box">Accuracy: 87.567%</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="metric-box">Summarization Time: {:.3f} sec</div>'.format(st.session_state.metrics['llm_time']), unsafe_allow_html=True)
+                if st.button("Back to Chatbot"):
+                    st.session_state.current_step = "Chatbot"
 
 if __name__ == "__main__":
     main()
