@@ -171,6 +171,36 @@ st.markdown(
     .metric-box:hover {
         transform: translateY(-6px);
     }
+    .tab-content {
+        display: none;
+        padding: 20px;
+        border-radius: 20px;
+        background: rgba(13, 27, 42, 0.9);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .tab-button {
+        background: linear-gradient(45deg, #00c4cc, #007bff);
+        color: #fff;
+        border: none;
+        border-radius: 25px;
+        padding: 10px 20px;
+        margin: 5px;
+        font-size: 1em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .tab-button:hover {
+        background: linear-gradient(45deg, #007bff, #00c4cc);
+        transform: scale(1.05);
+    }
+    .tab-button.active {
+        background: linear-gradient(45deg, #007bff, #00c4cc);
+        transform: scale(1.05);
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -187,6 +217,8 @@ if 'metrics' not in st.session_state:
     st.session_state.metrics = {}
 if 'generated_questions' not in st.session_state:
     st.session_state.generated_questions = []
+if 'current_step' not in st.session_state:
+    st.session_state.current_step = 'Text Extraction'
 
 # Set default document content internally
 default_document = """
@@ -371,7 +403,7 @@ Hint: Consider how data reduces uncertainty and allows better forecasting.
 Summary Table (Recap)
 
 | Topic | Definition | Example | Thinker/Topl |
-| :---: | :---: | | |
+| :---: | | | |
 | Management | Getting work done through others | School principal organizing staff | Fayol |
 | Planning | Setting goals and path | Strategic plan to expand | MBO |
 | Decision-Making | Choosing best option | SWOT for product launch | Decision Tree |
@@ -602,159 +634,160 @@ def plot_all_qubits_3d():
     )
     return fig
 
-# Page 1: Text Extraction
-def page_text_extraction():
-    st.title("Text Extraction")
-    with st.container():
-        uploaded_file = st.file_uploader("Select 'Management Principles Summary.pdf'", type="pdf", key="pdf_uploader", accept_multiple_files=False)
-        if uploaded_file is not None:
-            try:
-                with pdfplumber.open(uploaded_file) as pdf:
-                    st.session_state.extracted_text = ""
-                    for page in pdf.pages:
-                        text = page.extract_text()
-                        if text:
-                            st.session_state.extracted_text += text + "\n"
-                    if not st.session_state.extracted_text.strip():
-                        st.error("No valid text extracted from the PDF.")
-                    else:
-                        st.session_state.extracted_text = default_document  # Override with default document
-                        col1, col2 = st.columns([1, 1])
-                        with col1:
-                            if st.button("Proceed to Encoding"):
-                                st.switch_page("pages/encoding.py")
-            except Exception as e:
-                st.error(f"Error extracting text from PDF: {e}")
-        elif st.session_state.extracted_text:
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("Proceed to Encoding"):
-                    st.switch_page("pages/encoding.py")
+# Main app
+def main():
+    st.title("Quantum Text Processing App")
 
-# Page 2: Quantum Encoding
-def page_quantum_encoding():
-    st.title("Quantum Encoding")
-    with st.container():
-        if not st.session_state.extracted_text:
-            st.write("Please extract text first.")
-            if st.button("Back to Extraction"):
-                st.switch_page("app.py")
-        else:
-            st.write("Encoding Text with QOA (19 Qubits)...")
-            start_time = time.time()
-            qc = QuantumCircuit(19, 19)
-            text_length = min(len(st.session_state.extracted_text), 19)
-            for i in range(text_length):
-                if st.session_state.extracted_text[i].isalpha():
-                    qc.h(i)
-                    angle = np.pi * ord(st.session_state.extracted_text[i]) / 128
-                    qc.rx(angle, i)
-            st.session_state.encoded_circuit = qc
-            encoding_time = time.time() - start_time
-            st.session_state.metrics['encoding_time'] = encoding_time
-            
-            # Display single 3D visualization
-            st.plotly_chart(plot_all_qubits_3d(), use_container_width=True)
-            
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("Proceed to Summarization"):
-                    st.switch_page("pages/summarization.py")
+    # Tabbed interface
+    tabs = ["Text Extraction", "Quantum Encoding", "Text Summarization", "Chatbot", "Performance Metrics"]
+    current_tab = st.selectbox("Select Step", tabs, index=tabs.index(st.session_state.current_step))
 
-# Page 3: Summarization
-def page_summarization():
-    st.title("Text Summarization")
-    with st.container():
-        if st.session_state.encoded_circuit is None:
-            st.write("Please encode text first.")
-            if st.button("Back to Encoding"):
-                st.switch_page("pages/encoding.py")
-        else:
-            if not st.session_state.extracted_text or not st.session_state.extracted_text.strip():
-                st.error("No valid text available for summarization.")
-            else:
+    # Update current step in session state
+    st.session_state.current_step = current_tab
+
+    # Tab content
+    text_extraction_content = st.empty()
+    quantum_encoding_content = st.empty()
+    summarization_content = st.empty()
+    chatbot_content = st.empty()
+    metrics_content = st.empty()
+
+    # Text Extraction
+    with text_extraction_content.container():
+        if current_tab == "Text Extraction":
+            st.header("Text Extraction")
+            uploaded_file = st.file_uploader("Select 'Management Principles Summary.pdf'", type="pdf", key="pdf_uploader", accept_multiple_files=False)
+            if uploaded_file is not None:
                 try:
-                    start_time = time.time()
-                    st.session_state.summary = generate_summary(st.session_state.extracted_text)
-                    summarization_time = time.time() - start_time
-                    st.session_state.metrics['llm_time'] = summarization_time
-                    st.write("Summary (12 Paragraphs):")
-                    for i, para in enumerate(st.session_state.summary, 1):
-                        st.write(f"**Paragraph {i}:** {para}")
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
+                    with pdfplumber.open(uploaded_file) as pdf:
+                        st.session_state.extracted_text = ""
+                        for page in pdf.pages:
+                            text = page.extract_text()
+                            if text:
+                                st.session_state.extracted_text += text + "\n"
+                        if not st.session_state.extracted_text.strip():
+                            st.error("No valid text extracted from the PDF.")
+                        else:
+                            st.session_state.extracted_text = default_document  # Override with default document
+                            if st.button("Proceed to Quantum Encoding"):
+                                st.session_state.current_step = "Quantum Encoding"
+                except Exception as e:
+                    st.error(f"Error extracting text from PDF: {e}")
+            elif st.session_state.extracted_text:
+                if st.button("Proceed to Quantum Encoding"):
+                    st.session_state.current_step = "Quantum Encoding"
+
+    # Quantum Encoding
+    with quantum_encoding_content.container():
+        if current_tab == "Quantum Encoding":
+            st.header("Quantum Encoding")
+            if not st.session_state.extracted_text:
+                st.write("Please extract text first.")
+                if st.button("Back to Text Extraction"):
+                    st.session_state.current_step = "Text Extraction"
+            else:
+                st.write("Encoding Text with QOA (19 Qubits)...")
+                start_time = time.time()
+                qc = QuantumCircuit(19, 19)
+                text_length = min(len(st.session_state.extracted_text), 19)
+                for i in range(text_length):
+                    if st.session_state.extracted_text[i].isalpha():
+                        qc.h(i)
+                        angle = np.pi * ord(st.session_state.extracted_text[i]) / 128
+                        qc.rx(angle, i)
+                st.session_state.encoded_circuit = qc
+                encoding_time = time.time() - start_time
+                st.session_state.metrics['encoding_time'] = encoding_time
+                
+                st.plotly_chart(plot_all_qubits_3d(), use_container_width=True)
+                if st.button("Proceed to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
+
+    # Text Summarization
+    with summarization_content.container():
+        if current_tab == "Text Summarization":
+            st.header("Text Summarization")
+            if st.session_state.encoded_circuit is None:
+                st.write("Please encode text first.")
+                if st.button("Back to Quantum Encoding"):
+                    st.session_state.current_step = "Quantum Encoding"
+            else:
+                if not st.session_state.extracted_text or not st.session_state.extracted_text.strip():
+                    st.error("No valid text available for summarization.")
+                else:
+                    try:
+                        start_time = time.time()
+                        st.session_state.summary = generate_summary(st.session_state.extracted_text)
+                        summarization_time = time.time() - start_time
+                        st.session_state.metrics['llm_time'] = summarization_time
+                        st.write("Summary (12 Paragraphs):")
+                        for i, para in enumerate(st.session_state.summary, 1):
+                            st.write(f"**Paragraph {i}:** {para}")
                         if st.button("Proceed to Chatbot"):
                             st.session_state.generated_questions = generate_questions(" ".join(st.session_state.summary))
-                            st.switch_page("pages/chatbot.py")
-                except Exception as e:
-                    st.error(f"Error during summarization: {str(e)}. Ensure the text is valid.")
-                    st.write("Debug: Summarization failed. Check debug messages above for details.")
-
-# Page 4: Chatbot
-def page_chatbot():
-    st.title("Chatbot")
-    with st.container():
-        if not st.session_state.summary:
-            st.write("Please generate summary first.")
-            if st.button("Back to Summarization"):
-                st.switch_page("pages/summarization.py")
-            return
-
-        summary_text = " ".join(st.session_state.summary)
-        
-        # Auto-generated questions
-        if not st.session_state.generated_questions:
-            st.session_state.generated_questions = generate_questions(summary_text)
-        
-        st.write("Auto-Generated Advanced Questions (Click to Answer):")
-        for i, question in enumerate(st.session_state.generated_questions, 1):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                if st.button(f"{i}. {question}", key=f"question_{i}", help="Click to get the answer"):
-                    try:
-                        qa_model = pipeline("question-answering", model="deepset/roberta-base-squad2")
-                        start_time = time.time()
-                        answer = qa_model(question=question, context=summary_text)
-                        time_taken = time.time() - start_time
-                        st.write(f"**Question:** {question}")
-                        st.write(f"**Answer:** {answer['answer']}")
-                        st.write(f"**Confidence Score:** {answer['score']:.3f}")
-                        st.write(f"**Time Taken:** {time_taken:.3f} sec")
+                            st.session_state.current_step = "Chatbot"
                     except Exception as e:
-                        st.error(f"Error answering question: {e}")
+                        st.error(f"Error during summarization: {str(e)}. Ensure the text is valid.")
+                        st.write("Debug: Summarization failed. Check debug messages above for details.")
+                if st.button("Back to Quantum Encoding"):
+                    st.session_state.current_step = "Quantum Encoding"
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("View Performance Metrics"):
-                st.switch_page("pages/metrics.py")
+    # Chatbot
+    with chatbot_content.container():
+        if current_tab == "Chatbot":
+            st.header("Chatbot")
+            if not st.session_state.summary:
+                st.write("Please generate summary first.")
+                if st.button("Back to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
+            else:
+                summary_text = " ".join(st.session_state.summary)
+                
+                # Auto-generated questions
+                if not st.session_state.generated_questions:
+                    st.session_state.generated_questions = generate_questions(summary_text)
+                
+                st.write("Auto-Generated Advanced Questions (Click to Answer):")
+                for i, question in enumerate(st.session_state.generated_questions, 1):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        if st.button(f"{i}. {question}", key=f"question_{i}", help="Click to get the answer"):
+                            try:
+                                qa_model = pipeline("question-answering", model="deepset/roberta-base-squad2")
+                                start_time = time.time()
+                                answer = qa_model(question=question, context=summary_text)
+                                time_taken = time.time() - start_time
+                                st.write(f"**Question:** {question}")
+                                st.write(f"**Answer:** {answer['answer']}")
+                                st.write(f"**Confidence Score:** {answer['score']:.3f}")
+                                st.write(f"**Time Taken:** {time_taken:.3f} sec")
+                            except Exception as e:
+                                st.error(f"Error answering question: {e}")
+                if st.button("Proceed to Performance Metrics"):
+                    st.session_state.current_step = "Performance Metrics"
+                if st.button("Back to Text Summarization"):
+                    st.session_state.current_step = "Text Summarization"
 
-# Page 5: Performance Metrics
-def page_performance_metrics():
-    st.title("Performance Metrics")
-    with st.container():
-        if not st.session_state.metrics:
-            st.write("Please complete all steps first.")
-            if st.button("Back to Chatbot"):
-                st.switch_page("pages/chatbot.py")
-        else:
-            st.write("### PERFORMANCE METRICS")
-            with st.container():
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown('<div class="metric-box">Qubits Utilized: 19 Qubits</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="metric-box">Quantum Encoding Time: {:.3f} sec</div>'.format(st.session_state.metrics['encoding_time']), unsafe_allow_html=True)
-                with col2:
-                    st.markdown('<div class="metric-box">Accuracy: 87.567%</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="metric-box">Summarization Time: {:.3f} sec</div>'.format(st.session_state.metrics['llm_time']), unsafe_allow_html=True)
+    # Performance Metrics
+    with metrics_content.container():
+        if current_tab == "Performance Metrics":
+            st.header("Performance Metrics")
+            if not st.session_state.metrics:
+                st.write("Please complete all steps first.")
+                if st.button("Back to Chatbot"):
+                    st.session_state.current_step = "Chatbot"
+            else:
+                st.write("### PERFORMANCE METRICS")
+                with st.container():
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown('<div class="metric-box">Qubits Utilized: 19 Qubits</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="metric-box">Quantum Encoding Time: {:.3f} sec</div>'.format(st.session_state.metrics['encoding_time']), unsafe_allow_html=True)
+                    with col2:
+                        st.markdown('<div class="metric-box">Accuracy: 87.567%</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="metric-box">Summarization Time: {:.3f} sec</div>'.format(st.session_state.metrics['llm_time']), unsafe_allow_html=True)
+                if st.button("Back to Chatbot"):
+                    st.session_state.current_step = "Chatbot"
 
-# Main app routing
-pages = {
-    "Text Extraction": page_text_extraction,
-    "Quantum Encoding": page_quantum_encoding,
-    "Text Summarization": page_summarization,
-    "Chatbot": page_chatbot,
-    "Performance Metrics": page_performance_metrics
-}
-
-page = st.sidebar.selectbox("Navigate", list(pages.keys()), format_func=lambda x: f"**{x}**")
-pages[page]()
+if __name__ == "__main__":
+    main()
