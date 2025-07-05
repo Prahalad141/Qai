@@ -8,4 +8,4 @@ nltk
 spacy
 plotly
 torch
-
+matplotlib
