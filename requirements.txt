@@ -7,4 +7,5 @@ transformers
 nltk
 spacy
 plotly
+matplotlib
 
