@@ -26,179 +26,195 @@ except Exception as e:
     st.error(f"Error loading spacy model: {str(e)}. Please ensure 'en_core_web_sm' is installed.")
     nlp = None
 
-# Custom CSS with local fallback for background image
+# Custom CSS with enhanced quantum-themed styling
 st.markdown(
     """
     <style>
+    /* Quantum-themed background with fallback */
     .main {
-        background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=='); /* 1x1 transparent pixel as fallback */
+        background-image: url('https://images.unsplash.com/photo-1620133471391-0a2e2b4f9a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); /* Quantum computing background */
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
-        color: #e0e0e0;
-        font-family: 'Poppins', sans-serif;
-        animation: fadeIn 1.5s ease-in-out;
+        color: #d1e8ff;
+        font-family: 'Orbitron', sans-serif; /* Futuristic font */
+        animation: fadeIn 2s ease-in-out;
+        min-height: 100vh;
+    }
+    /* Fallback for background image failure */
+    .main::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0a0f2b, #1e3a8a); /* Quantum-inspired gradient */
+        opacity: 0.95;
+        z-index: -1;
     }
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
     }
+    /* Sidebar styling */
     .sidebar .sidebar-content {
-        background: linear-gradient(135deg, #0d1b2a, #1b263b);
-        color: #e0e0e0;
-        padding: 25px;
-        border-radius: 20px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        background: linear-gradient(135deg, #1e3a8a, #2a5298);
+        color: #d1e8ff;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
         animation: slideIn 1s ease-out;
     }
     @keyframes slideIn {
-        from { transform: translateX(-100%); }
-        to { transform: translateX(0); }
+        from { transform: translateX(-100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
     .sidebar .sidebar-content .stSelectbox label {
-        color: #00d4ff;
-        font-size: 1.3em;
-        font-weight: 600;
-        text-shadow: 2px 2px 4px #000;
+        color: #00ff88; /* Neon green for quantum vibe */
+        font-size: 1.4em;
+        font-weight: 700;
+        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
     }
+    /* Button styling with quantum glow */
     .stButton>button {
-        background: linear-gradient(45deg, #00c4cc, #007bff);
-        color: #fff;
+        background: linear-gradient(45deg, #00ff88, #007bff);
+        color: #ffffff;
         border: none;
-        border-radius: 25px;
-        padding: 15px 35px;
+        border-radius: 30px;
+        padding: 15px 40px;
         font-size: 1.2em;
         font-weight: 600;
-        box-shadow: 0 6px 20px rgba(0, 116, 255, 0.4);
-        transition: all 0.4s ease, transform 0.3s ease;
+        box-shadow: 0 8px 25px rgba(0, 255, 136, 0.5);
+        transition: all 0.3s ease, transform 0.2s ease;
         position: relative;
         overflow: hidden;
         cursor: pointer;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.5px;
     }
     .stButton>button:hover {
-        background: linear-gradient(45deg, #007bff, #00c4cc);
-        transform: scale(1.1) translateY(-4px);
-        box-shadow: 0 10px 30px rgba(0, 116, 255, 0.6);
+        background: linear-gradient(45deg, #007bff, #00ff88);
+        transform: scale(1.08) translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0, 255, 136, 0.7);
     }
-    .stButton>button:after {
+    .stButton>button::after {
         content: '';
         position: absolute;
         top: 50%;
         left: 50%;
         width: 0;
         height: 0;
-        background: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 50%;
         transform: translate(-50%, -50%);
-        transition: width 0.7s ease, height 0.7s ease;
+        transition: width 0.6s ease, height 0.6s ease;
     }
-    .stButton>button:hover:after {
-        width: 500px;
-        height: 500px;
+    .stButton>button:hover::after {
+        width: 600px;
+        height: 600px;
     }
+    /* Input fields with quantum aesthetic */
     .stTextArea textarea, .stTextInput input {
-        background-color: rgba(13, 27, 42, 0.9);
-        color: #e0e0e0;
-        border: 2px solid #1b263b;
-        border-radius: 20px;
-        backdrop-filter: blur(10px);
-        transition: all 0.4s ease;
+        background-color: rgba(10, 15, 43, 0.9);
+        color: #d1e8ff;
+        border: 2px solid #1e3a8a;
+        border-radius: 15px;
+        backdrop-filter: blur(12px);
+        transition: all 0.3s ease;
+        font-family: 'Roboto Mono', monospace;
     }
     .stTextArea textarea:focus, .stTextInput input:focus {
-        border-color: #00d4ff;
-        box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+        border-color: #00ff88;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.7);
     }
     .stTextArea label, .stTextInput label {
-        color: #00d4ff;
+        color: #00ff88;
         font-weight: 600;
-        text-shadow: 2px 2px 5px #000;
-        animation: pulse 2.5s infinite;
+        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.8);
+        animation: glow 2s infinite;
     }
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.08); }
-        100% { transform: scale(1); }
+    @keyframes glow {
+        0% { text-shadow: 0 0 10px #00ff88; }
+        50% { text-shadow: 0 0 20px #00ff88, 0 0 30px #007bff; }
+        100% { text-shadow: 0 0 10px #00ff88; }
     }
+    /* Image styling with floating animation */
     .stImage {
-        border-radius: 20px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-        animation: float 4s infinite ease-in-out;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+        animation: float 3.5s infinite ease-in-out;
     }
     @keyframes float {
         0% { transform: translateY(0); }
-        50% { transform: translateY(-12px); }
+        50% { transform: translateY(-10px); }
         100% { transform: translateY(0); }
     }
+    /* Header styling */
     h1 {
-        color: #00d4ff;
+        color: #00ff88;
         text-align: center;
-        text-shadow: 3px 3px 8px #000;
-        background: rgba(13, 27, 42, 0.9);
-        padding: 20px;
-        border-radius: 20px;
-        animation: bounceIn 1.2s ease-out;
+        text-shadow: 3px 3px 10px rgba(0, 0, 0, 0.8);
+        background: rgba(10, 15, 43, 0.9);
+        padding: 25px;
+        border-radius: 15px;
+        animation: bounceIn 1.5s ease-out;
     }
     @keyframes bounceIn {
-        0% { transform: scale(0.9); opacity: 0; }
-        50% { transform: scale(1.15); }
+        0% { transform: scale(0.8); opacity: 0; }
+        50% { transform: scale(1.2); }
         100% { transform: scale(1); opacity: 1; }
     }
-    .stWrite {
-        color: #e0e0e0;
-        background: rgba(13, 27, 42, 0.9);
-        padding: 20px;
-        border-radius: 20px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    /* Content boxes */
+    .stWrite, .tab-content {
+        color: #d1e8ff;
+        background: rgba(10, 15, 43, 0.9);
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
         animation: slideUp 1s ease-out;
     }
     @keyframes slideUp {
-        from { transform: translateY(25px); opacity: 0; }
+        from { transform: translateY(30px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
+    /* Metric boxes with hover effect */
     .metric-box {
-        background: rgba(13, 27, 42, 0.95);
-        padding: 25px;
-        border-radius: 20px;
-        margin: 15px 0;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        background: rgba(10, 15, 43, 0.95);
+        padding: 20px;
+        border-radius: 15px;
+        margin: 10px 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
         text-align: center;
-        font-size: 1.3em;
-        transition: transform 0.4s ease;
+        font-size: 1.2em;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     .metric-box:hover {
-        transform: translateY(-6px);
+        transform: translateY(-5px);
+        box-shadow: 0 12px 35px rgba(0, 255, 136, 0.7);
     }
-    .tab-content {
-        display: none;
-        padding: 20px;
-        border-radius: 20px;
-        background: rgba(13, 27, 42, 0.9);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-    }
-    .tab-content.active {
-        display: block;
-    }
-    .tab-button {
-        background: linear-gradient(45deg, #00c4cc, #007bff);
-        color: #fff;
+    /* Tab buttons with quantum glow */
+    .tab-button, .stSelectbox div[data-baseweb="select"] {
+        background: linear-gradient(45deg, #00ff88, #007bff);
+        color: #ffffff;
         border: none;
-        border-radius: 25px;
-        padding: 10px 20px;
+        border-radius: 30px;
+        padding: 12px 25px;
         margin: 5px;
-        font-size: 1em;
+        font-size: 1.1em;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
+        box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
     }
-    .tab-button:hover {
-        background: linear-gradient(45deg, #007bff, #00c4cc);
+    .tab-button:hover, .stSelectbox div[data-baseweb="select"]:hover {
+        background: linear-gradient(45deg, #007bff, #00ff88);
         transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(0, 255, 136, 0.7);
     }
-    .tab-button.active {
-        background: linear-gradient(45deg, #007bff, #00c4cc);
+    .tab-button.active, .stSelectbox div[data-baseweb="select"] div[aria-selected="true"] {
+        background: linear-gradient(45deg, #007bff, #00ff88);
         transform: scale(1.05);
     }
     </style>
@@ -210,7 +226,7 @@ st.markdown(
 if 'extracted_text' not in st.session_state:
     st.session_state.extracted_text = ""
 if 'encoded_circuit' not in st.session_state:
-    st.session_state.encoded_circuit = None
+    st.session_state.encoded_circuit = Sne
 if 'summary' not in st.session_state:
     st.session_state.summary = []
 if 'metrics' not in st.session_state:
@@ -585,16 +601,16 @@ def plot_all_qubits_3d():
         x_s = pos[0] + ball_radius * np.outer(np.cos(u), np.sin(v))
         y_s = pos[1] + ball_radius * np.outer(np.sin(u), np.sin(v))
         z_s = pos[2] + ball_radius * np.outer(np.ones(np.size(u)), np.cos(v))
-        fig.add_trace(go.Surface(x=x_s, y=y_s, z=z_s, colorscale='Blues', opacity=0.5, showscale=False, name=f'Qubit {i} Sphere'))
+        fig.add_trace(go.Surface(x=x_s, y=y_s, z=z_s, colorscale='Viridis', opacity=0.6, showscale=False, name=f'Qubit {i} Sphere'))
 
         # State vector
         fig.add_trace(go.Scatter3d(
             x=[pos[0], pos[0] + x_sphere], y=[pos[1], pos[1] + y_sphere], z=[pos[2], pos[2] + z_sphere],
-            mode='lines+markers', line=dict(color='red', width=2), marker=dict(size=4, color='red'),
+            mode='lines+markers', line=dict(color='#ff4d4d', width=3), marker=dict(size=5, color='#ff4d4d'),
             name=f'Qubit {i} State'
         ))
-        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] + ball_radius], mode='markers', marker=dict(size=3, color='green'), name=f'Qubit {i} |0>'))
-        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] - ball_radius], mode='markers', marker=dict(size=3, color='orange'), name=f'Qubit {i} |1>'))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] + ball_radius], mode='markers', marker=dict(size=4, color='#00ff88'), name=f'Qubit {i} |0>'))
+        fig.add_trace(go.Scatter3d(x=[pos[0]], y=[pos[1]], z=[pos[2] - ball_radius], mode='markers', marker=dict(size=4, color='#ffaa00'), name=f'Qubit {i} |1>'))
 
         # Cube (scaled to table tennis ball size)
         cube_scale = ball_radius * 1.5  # Slightly larger than sphere for visibility
@@ -618,7 +634,7 @@ def plot_all_qubits_3d():
                 x=[vertices[edge[0]][0], vertices[edge[1]][0]],
                 y=[vertices[edge[0]][1], vertices[edge[1]][1]],
                 z=[vertices[edge[0]][2], vertices[edge[1]][2]],
-                mode='lines', line=dict(color='cyan', width=2), name=f'Qubit {i} Cube'
+                mode='lines', line=dict(color='#00d4ff', width=2), name=f'Qubit {i} Cube'
             ))
 
     fig.update_layout(
@@ -628,7 +644,7 @@ def plot_all_qubits_3d():
         ),
         title='All 19 Qubits in QOA (Bloch Spheres and Cubes)',
         showlegend=True,
-        margin=dict(l=0, r=0, t=40, b=0),
+        margin=dict(l=0, r=0, t=50, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
